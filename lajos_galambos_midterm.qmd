@@ -1,0 +1,518 @@
+---
+title: "Midterm Assignment"
+author: "Lajos Galambos"
+format: pdf
+---
+
+```{r}
+#| output: false
+#| echo: false
+# Setting seed 
+set.seed(123)
+
+# Generate data for 365 days
+day <- 1:365
+
+# Generate temperature variable
+temperature <- sin(day / 58.1) + rnorm(365, 0, 0.5)
+
+# Generate ice cream sales (in thousands)
+ice_cream_sales <- 2 + (3 * temperature) + rnorm(365, 0, 0.2)
+
+# Generate swimming pool attendance (in hundreds)
+swimming_pool_attendance <- 1 + (2.5 * temperature) + rnorm(365, 0, 0.25)
+
+# Calculate correlation between ice cream sales and swimming pool attendance
+correlation <- cor(ice_cream_sales, swimming_pool_attendance)
+```
+
+```{r}
+#| echo: false
+#| output: false
+# Linear model for ice cream sales based on swimming pool attendance
+lm_ice_cream_sales <- lm(ice_cream_sales ~ swimming_pool_attendance)
+
+# Linear model for swimming pool attendance based on temperature
+lm_swimming_pool_attendance <- lm(swimming_pool_attendance ~ temperature)
+
+# Linear model for ice cream sales on temperature
+lm_ice_cream_temp <- lm(ice_cream_sales ~ temperature)
+
+# Calculate R squared for ice cream sales (from swimming pool attendance)
+r_squared_ice_cream_sales <- summary(lm_ice_cream_sales)$r.squared
+
+# Calculate R squared for swimming pool attendance (from temperature)
+r_squared_swimming_pool_attendance <- summary(lm_swimming_pool_attendance)$r.squared
+
+# Calculate R squared for ice cream salaes (from temperature)
+r_squared_ice_cream_temp <- summary(lm_ice_cream_temp)$r.squared
+
+# Print R squared values
+r_squared_ice_cream_sales
+r_squared_swimming_pool_attendance
+r_squared_ice_cream_temp
+```
+
+# **Question 1**
+
+Correlation Does Not Imply Causation Simulated data for two variables: ice_cream_sales (in thousands) and swimming_pool_attendance (in hundreds), over 365 days, assuming both increase during summer due to the weather but are not causally related.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+library(ggplot2)
+
+# Create a data frame
+df <- data.frame(day = day, 
+                 temperature = temperature, 
+                 ice_cream_sales = ice_cream_sales, 
+                 swimming_pool_attendance = swimming_pool_attendance)
+
+# Create a scatter plot
+ggplot(df, aes(y = ice_cream_sales, x = swimming_pool_attendance)) +
+  geom_point(color = "red", alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", size = 1) +
+  geom_hline(yintercept = 0, color = "black", size = 0.7) +
+  geom_vline(xintercept = 0, color = "black", size = 0.7) +
+  labs(y = "Ice Cream Sales (in thousands)", 
+       x = "Swimming Pool Attendance (in hundreds)", 
+       title = paste("Correlation:", round(correlation, 4))) +
+  xlim(0, max(swimming_pool_attendance)) +
+  ylim(0, max(ice_cream_sales))
+```
+
+*I adjusted the graph to display the positive sections of the functions that were provided.*
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+library(knitr)
+
+# Create a data frame 
+stats <- data.frame(
+  Statistic = c("Correlation (Sales and Attendance)", "R-squared (Sales and Attendance)", "R-squared (Attendance and Temperature)", "R-squared (Sales and Temperature)"),
+  Value = c(correlation, r_squared_ice_cream_sales, r_squared_swimming_pool_attendance, r_squared_ice_cream_temp))
+
+# Create a table
+knitr::kable(stats, caption = "Statistics", digits = 4)
+```
+
+1.  **What is the correlation coefficient between ice_cream_sales and swimming_pool_attendance?**
+
+The correlation is 0.9900339, which is high and positive. Ice cream sales are highly and positive correlated with swimming pool attendance. If we were to increase swimming pool attendance we could expect increased ice cream sales, on average.
+
+2.  **Does this correlation imply that increased ice cream sales cause higher swimming pool attendance or *vice versa*? Explain why or why not. What is the R square for each specification? What do you conclude?**
+
+The increased ice cream sales do not cause higher pool attendance, nor do increased pool attendance cause increased ice cream sales. Higher ice cream sales are associated with higher pool attendance and *vice versa.* The relationship is positive, highly correlated but not causal.
+
+This is not a causal relationship because first, we know that from the description of the task, second, we know nothing about the setup of the experiment (how was the independence of potential outcomes ensured).
+
+The R-squared statistics are used for prediction purposes. High R-squared values imply high predictive power. In this case, in all specifications, the R-squared vales are high, implying that we could consider ice cream sales for the prediction of swimming pool attendance; and we could use swimming pool attendance for predicting ice cream sales, and so on. R squerd wales are identical for both directions: R squared of temperature and ice cream sales are identical to ice cream sales and temperature. Would we use R squared to predict temperature? Well, the temperature has been assumed to be the variable that has an exogenous source of variation. The functional forms of the variables also confirm this. Therefore in my oppinion, using R sruared values to estimate temeprature given ice cream sales or swimming pool attendance is techincally viable but in theoretically it is a bit odd.
+
+3.  **Identify the intruder in this scenario and discuss its role.**
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+correlation_salestemp <- cor(ice_cream_sales, temperature)
+correlation_attendtemp <- cor(swimming_pool_attendance, temperature)
+
+# Create a data frame 
+stats <- data.frame(
+Statistic = c("Correlation Sales and Temperature", "Correlation of Attendance and Temperature"),
+Value = c(correlation_salestemp, correlation_attendtemp)
+    )
+
+# Create a table
+knitr::kable(stats, caption = "Statistics", digits = 4)
+```
+
+The intruder is the variable that effects other variables, it is a confounder variable. As such, temperature is highly positively associated with both ice cream sales and swimming pool attendance. We can also assume that the temperature is the intruder since other variables, such as swimming pool attendance and ice cream sales have a functional relationship with temperature.
+
+# **Question 2**
+
+Two variables can be correlated due to confounding factors rather than a direct causal relationship.
+
+Simulated data for three variables: time_spent_on_social_media (hours), academic_performance (score), and stress_level (score). Assume stress_level affects both time_spent_on_social_media and academic_performance, creating a spurious correlation between the latter two.
+
+```{r}
+#| output: false
+#| echo: false
+# Setting seed 
+set.seed(321)
+
+# Generate data for 100 observations
+stress_level <- rnorm(100, mean = 5, sd = 2)
+time_spent_on_social_media <- 2 + (0.5 * stress_level) + rnorm(100, mean = 0, sd = 0.5)
+academic_performance <- 90 - (2 * stress_level) + rnorm(100, mean = 0, sd = 2)
+
+# Calculate the correlation between time spent on social media and academic performance
+correlation <- cor(time_spent_on_social_media, academic_performance)
+```
+
+1.  **What is the correlation coefficient between time_spent_on_social_media and academic_performance? Plot it.**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+# Create a data frame 
+df <- data.frame(stress_level = stress_level, 
+                 time_spent_on_social_media = time_spent_on_social_media, 
+                 academic_performance = academic_performance)
+
+# Create a scatter plot
+ggplot(df, aes(x = time_spent_on_social_media, y = academic_performance)) +
+  geom_point(color = "red", alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", size = 1) +
+  geom_hline(yintercept = 50, color = "black", size = 0.7) +
+  geom_vline(xintercept = min(time_spent_on_social_media), color = "black", size = 0.7) +
+  labs(x = "Time Spent on Social Media", 
+       y = "Academic Performance", 
+       title = paste("Correlation:", round(correlation, 4)))
+```
+
+*I have adjusted the graph's x axis to start from the lowest observation, and the y axis to start from 50. I did this to see more detail.*
+
+```{r}
+#| output: false
+#| echo: false
+print(correlation)
+```
+
+The correlation between academic performance and time spent on social media is -0.8046621, which is a strong negative correlation. If we were to increase the time spent on social media we could expect lower academic performance, on average. No causality can be inferred.
+
+2.  **What is the specification you would estimate to understand the effect of time spent on social media on academic performance.**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+library(broom)
+library(kableExtra)
+
+lm_specified <- lm(academic_performance ~ time_spent_on_social_media + stress_level)
+
+# Plotting
+ggplot(data = data.frame(academic_performance, time_spent_on_social_media + stress_level), aes(x = time_spent_on_social_media + stress_level, y = academic_performance)) +
+      geom_point(color = "red", alpha = 0.5, size = 1) +
+      geom_smooth(method = "lm", color = "black") +
+      theme_minimal() + labs(x = "Time Spent on Social Media and Stress Level", y = "Academic Performance")
+
+
+# Creating a summary table
+tidy_summary <- tidy(lm_specified)
+
+kable(tidy_summary, caption = "Summary of Multivariate Regression Model: Academic Performance on Time Spent on Spcial Media and Stress Level ", digits = 4)
+```
+
+To give a specification that estimates the effect of time spent of social media on academic performance, we should not forget that the simulated data it was assumed that stress_level affects both time_spent_on_social_media and academic_performance, creating a spurious correlation between the latter two. So I should think about creating a model, where I include the confounding variable: stress level; time spent on social media (to account for the spurious correlation); and academic performance as the outcome variable. Based on the regression outputs, it can be stated that stress level has significant negative effect on academic performance. There is a good reason to think that stress level is the right variable to create causal specification, as both academic performance and time spent on social media are functional outcomes of the stress level.
+
+3.  **Explain why this correlation might be misleading in concluding a causal relationship between time spent on social media and academic performance.**
+
+First, I know from the task description that the time spent on social media and academic performance has a spurious correlation. It is correlation only, and spurious, which means that there is an underlying factor that affect both. Excluding the confounding variable, would be misleading.
+
+Second, as it has been demonstrated in the previous exercise, relying on the assumptions by the task description, stress level acts as a confounder, and it has causal effect on academic performance.
+
+4.  **How could you investigate if stress_level is a confounding factor?**
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+library(knitr)
+correlation_socmediastress <- round(cor(time_spent_on_social_media, stress_level), 4)
+correlation_academicperfstress <- round(cor(academic_performance, stress_level), 4)
+correlation_academicperfsocmed <- round(cor(academic_performance, time_spent_on_social_media), 4)
+
+# Create a data frame
+stats <- data.frame(
+Statistic = c("Correlation Time Spent on Soc.Media and Stress Level", "Correlation of Acadmeic Performance and Stress Level", "", "Correlation Academic Performance and Time Spent on Soc.Media"),
+Value = c(correlation_socmediastress, correlation_academicperfstress, "",correlation_academicperfsocmed)
+    )
+
+# Creating a table
+knitr::kable(stats, caption = "Statistics")
+
+```
+
+By looking at the correlations (**Table 4**), I can see that time spent on social media is highly and positively correlated with stress level; and academic performance is highly and negatively correlated with stress level. Furthermore, as demonstrated before, academic performance and time spent on social media is negatively correlated. Furthermore, I know from the functional forms of academic performance and time spent on social media variables that stress level has a functional effect on both.
+
+# **Question 3**
+
+**Simulate data to show that lack of correlation does not imply lack of causality.**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+# Setting seed
+set.seed(123)
+
+x <- seq(-10, 10, length.out = 300)
+y <- 2 * x^2 + rnorm(300, mean = 0, sd = 10)
+
+# Correlation
+correlation <- cor(x, y)
+
+# Plotting
+ggplot(data = data.frame(x, y), aes(x = x, y = y)) +
+  geom_point(color = "grey", alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", size = 1) +
+  labs(title = "Lack of Linear Correlation Does Not Imply Lack of Causality",
+       subtitle = paste("Correlation coefficient:", round(correlation, 2)),
+       x = "Independent Variable X", y = "Dependent Variable Y") +
+  theme_minimal()
+```
+
+```{r}
+#| eval: false
+x <- seq(-10, 10, length.out = 300)
+y <- 2 * x^2 + rnorm(300, mean = 0, sd = 10)
+```
+
+The graph shows simulated data and "y" is quadratic functional form of "x" (y \<- 2 \* x\^2 ). The implies a correlation that is close to zero, however, still the functional form implies strong relationship between "y" "x". It can still be states that "x" causes "y" regardless of the close to zero correlation. Causality can exist without correlation.
+
+# **Question 4**
+
+What story does the code below tell? Interpret the code and comment on your findings.
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+# Clear environment
+rm(list = ls())
+
+# Set seed for reproducibility
+set.seed(1234)
+
+# Generate data
+n <- 10000
+ability <- rnorm(n, mean = 1, sd = 2)
+schooling <- 0.3 * ability + rnorm(n, mean = 0, sd = 1.3)
+earnings <- -0.4 * schooling + 1.2 * ability + runif(n)
+```
+
+## **Model 1 - Regression model of earnings on schooling (plus ability as a confounder):**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+model1 <- lm(earnings ~ schooling + ability)
+
+# Plotting
+ggplot(data = data.frame(earnings, schooling + ability), aes(x = schooling + ability, y = earnings)) +
+  geom_point(color = "gray", alpha = 0.5, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_minimal() + labs(x = "Schooling and Ability", y = "Earnings")
+
+# Create a summary table
+tidy_summary <- tidy(model1)
+
+kable(tidy_summary, caption = "(Model 1)Summary of Multivariate Regression Model: Earnings on Schooling and Ability", digits = 4)
+```
+
+**Model 1**, where the outcome variable is earnings and schooling is the dependent variable, a confounder is added. Ability affects both, therefore in the linear model schooling affects earnings, controlling on ability.
+
+The results from the regression outputs tell us that if we were to hold ability constant, there are negative returns in earnings to schooling; meanwhile, when we hold schooling constant, there is a positive returns in earning to ability. Coefficient estimates are significant.
+
+I also get back the same coefficients from the regressions as in the pre-specified functions for variables. That means that the regression is unbiased, I included all the existing variables.
+
+## **Model 2 - Regression model of earnings on schooling (without confounder):**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+model2 <- lm(earnings ~ schooling)
+
+# Plotting
+ggplot(data = data.frame(earnings, schooling), aes(x = schooling, y = earnings)) +
+  geom_point(color = "gray", alpha = 0.5, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_minimal() + labs(x = "Schooling", y = "Earnings")
+
+# Create a summary table
+tidy_summary <- tidy(model2)
+
+kable(tidy_summary, caption = "(Model 2)Summary of Regression Model: Earnings on Schooling", digits = 4)
+
+```
+
+**Model 2** shows how earnings are correlated with schooling. It displays the scenario if only schooling was is linked with earnings, what returns do earning have to schooling. It is a positive relationship. For additional years of schooling earnings are expected to increase. The coefficient estimate is weak and significant.
+
+Model 2 has a big omitted variable bias, because as it have been seen above, ability plays a crucial role. Since the coefficient for schooling changes significantly between Model 1 and Model 2, this suggests that ability is an important factor that influences both schooling and earnings. This comparison helps in understanding the potential biases and limitations of simpler models that exclude relevant variables.
+
+## **Model 3 - Regression model of earnings on ability:**
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+model3 <- lm(earnings ~ ability)
+
+ggplot(data = data.frame(earnings, ability), aes(x = ability, y = earnings)) +
+  geom_point(color = "gray", alpha = 0.5, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_minimal() + labs(x = "Ability", y = "Earnings")
+
+# Create a summary table
+tidy_summary <- tidy(model3)
+
+kable(tidy_summary, caption = "(Model 3)Summary of Regression Model: Earnings on Ability", digits = 4)
+```
+
+**Model 3** is a linear model where the relationship of ability and earnings is being investigated. This model aims to assess the association between an individual's ability and their earnings, independent of their level of schooling. The results from the regression output tell us that given that positive and singificant coefficient, higher ability is associated with higher earnings, all else being equal. One unit increase in ability has a positive return in earnings.
+
+## Model 4,5 - Regression model of residuals:
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+# Predicting residuals
+earnings_res <- resid(model3)
+model4 <- lm(schooling ~ ability)
+res_schol <- resid(model4)
+
+# Regressing residuals
+model5 <- lm(earnings_res ~ res_schol)
+
+ggplot(data = data.frame(earnings_res, res_schol), aes(x = res_schol, y = earnings_res)) +
+  geom_point(color = "gray",alpha = 0.5, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_minimal() + labs(x = "Residuals of Schooling", y = "Residuals of Earnings")
+
+# Create a summary table
+tidy_summary <- tidy(model5)
+
+kable(tidy_summary, caption = "(Model 5)Summary of Regression Model: Rsiduals of Earnings on Residuals of Schooling", digits = 4)
+```
+
+**Model 4** displays how much of the variation in schooling can be explained by ability alone in a linear model. Residuals of from this model (res_schol) are the residuals from the regression of schooling on ability, representing the part of schooling not explained by ability.
+
+**Model 5** gives a linear model for linking the residuals of model 4 (residuals from linear model of schooling on ability - "res_schol") and derives the residual from model 3 ("earnings_res"), the residuals from the regression of earnings on ability, representing the part of earnings not explained by ability.
+
+The coefficient estimates tell that schooling residuals have a significant and negative relationship with earnings residuals. It suggests that, once the effect of ability is accounted for, an increase in the schooling residuals is associated with a decrease in earnings residuals.
+
+Also, the res_school coefficient gives the same estimate as the unbiased regression (with confounder).
+
+# **Question 5**
+
+Simulate how well behaved measurement error (in the main regressor or outcome of interest) affects your estimated coefficient of interest. What can you tell about departures from the well behaved instances?
+
+## Measurement error in the main regressor (above Table 9):
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+set.seed(123) 
+n <- 1000
+X_true <- rnorm(n, mean = 50, sd = 10)
+error_X <- rnorm(n, mean = 0, sd = 5) 
+X_observed <- X_true + error_X 
+Y <- 2 + 0.5 * X_true + rnorm(n) 
+
+# Regression with true X
+model_true <- lm(Y ~ X_true)
+
+# Regression with observed X (with measurement error)
+model_observed <- lm(Y ~ X_observed)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+library(broom)
+library(knitr)
+tidy_summary <- tidy(model_observed)
+
+kable(tidy_summary, caption = "Summary of Regression Model with Measurement Error in the Main Regressor", digits = 4)
+```
+
+This is the first scenario for measurement error. Let us assume that we are in a simple linear model with Y as the dependent variable with a constant and an independent variable with Beta1 coefficient plus an error term. In my simulation "model_observed" is being compared to "model_true".
+
+Measurement error in the independent variable (regressor) leads to attenuation bias, where the absolute value of the estimated coefficient is biased toward zero compared to its true value, as the regression output also demonstrates (0,49 vs. 0.38). This bias arises because the variability of the observed regressor is inflated due to the measurement error, weakening the observed association between the regressor and the outcome.\
+
+## Measurement error in the outcome (above Table 10):
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+error_Y <- rnorm(n, mean = 0, sd = 5) 
+Y_observed <- Y + error_Y 
+
+# Regression with observed Y (with measurement error)
+model_Y_observed <- lm(Y_observed ~ X_true)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+tidy_summary <- tidy(model_Y_observed)
+
+kable(tidy_summary, caption = "Summary of Regression Model with Measurement Error in the Outcome", digits = 4)
+```
+
+Measurement error in the dependent variable generally does not bias the coefficient estimates but increases the variance of the error term. This results in less precise estimates (higher standard errors), potentially leading to wider confidence intervals and making it harder to detect significant relationships.
+
+## Non-well behaving scenario:
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+set.seed(123)
+n <- 1000
+X_true <- rnorm(n, mean = 50, sd = 10)
+Y_true <- 2 + 0.5 * X_true + rnorm(n)
+
+# Introducing correlated measurement error in X
+error_X <- X_true * rnorm(n, mean = 0, sd = 0.1) 
+X_observed_with_correlated_error <- X_true + error_X
+
+# Introducing measurement error in Y
+error_Y <- 0.1 * Y_true * rnorm(n) 
+Y_observed_with_heteroscedastic_error <- Y_true + error_Y
+
+# Regression with observed X (with correlated measurement error)
+model_with_correlated_error <- lm(Y_true ~ X_observed_with_correlated_error)
+
+# Regression with observed Y (with heteroscedastic measurement error)
+model_with_heteroscedastic_error <- lm(Y_observed_with_heteroscedastic_error ~ X_true)
+```
+
+## Model with correlated measurement errors (Table 11):
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+tidy_summary <- tidy(model_with_correlated_error)
+
+kable(tidy_summary, caption = "Summary of Regression Model with Correlated Measurement Error", digits = 4)
+```
+
+The correlation between the measurement error and the true value of can lead to biased estimates of the regression coefficients. Unlike classical random measurement error, which primarily affects the precision of the estimates (increasing their standard errors), correlated errors can bias the coefficients in unpredictable directions.
+
+## Model with heteroscedastic errors in the outcome (Table 12):
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+tidy_summary <- tidy(model_with_heteroscedastic_error)
+
+kable(tidy_summary, caption = "Summary of Regression Model with Heteroscedastic Measurement Error in the Outcome", digits = 4)
+```
+
+Heteroscedasticity is a phenomenon in regression models where the variance of the errors, or residuals, is not constant across all levels of the independent variables. Heteroscedasticity in the measurement error of the dependent variable violates one of the key assumptions of linear regression, potentially leading to inefficient estimation and inaccurate standard errors. This can affect the reliability of confidence intervals.
