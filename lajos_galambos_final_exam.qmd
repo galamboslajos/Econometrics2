@@ -1,0 +1,173 @@
+---
+title: "Final Exam"
+author: "Lajos Galambos"
+format: html
+---
+The first chunk is a simulation for Question 1 of the Final Exam. It generates data and creates a plot for regression discontinuity demonstration. 
+```{r}
+### Question 1
+#| echo: false
+#| warning: false
+#| message: false
+library(ggplot2)
+
+set.seed(123) 
+n <- 100 
+cutoff <- 50 
+
+# Generate data
+data <- data.frame(
+  x = 1:n,
+  y = 200 - 2*(1:n) + rnorm(n, mean = 0, sd = 20) 
+)
+
+# Discontinuity
+data$y[data$x > cutoff] <- data$y[data$x > cutoff] - 40
+
+# Treatment assignment based on cutoff
+data$treatment <- ifelse(data$x > cutoff, 0, 1)
+
+# Plotting the data points
+ggplot(data, aes(x = x, y = y)) +
+  geom_point(aes(color = factor(treatment)), alpha = 0.6) +
+  geom_vline(xintercept = cutoff, linetype="dashed", color = "red") +
+  geom_smooth(data = subset(data, x <= cutoff), method = "lm", se = FALSE, color = "black") +
+  geom_smooth(data = subset(data, x > cutoff), method = "lm", se = FALSE, color = "black") +
+  labs(title = "Regression Discontinuity Design Demonstration",
+       subtitle = "Linear Fit on Either Side of Cutoff",
+       x = "Distance from Wind Turbines",
+       y = "Cancer Cases",
+       color = "Treatment") +
+  theme_minimal()
+```
+
+The following chunk is a simulation for Question 3 of the Final Exam. It generates data and creates a plot for regression discontinuity demonstration. 
+```{r}
+### Question 3
+#| echo: false
+#| warning: false
+#| message: false
+set.seed(0)
+
+bandwidth <- runif(1000, -1, 1)
+chat_gpt <- as.integer(bandwidth > 0)
+test_scores <- 50 + 25*chat_gpt + 10*bandwidth + 15*chat_gpt*bandwidth + rnorm(1000, 0, 5)
+
+test_scores <- pmax(pmin(test_scores, 100), 0)
+
+# Create a data frame
+df <- data.frame(bandwidth = bandwidth, chat_gpt = chat_gpt, test_scores = test_scores)
+
+# Plot the data
+ggplot(df, aes(x = bandwidth, y = test_scores)) +
+  geom_point(aes(color = factor(chat_gpt)), alpha = 0.6) +
+  geom_vline(xintercept = 0, linetype="dashed", color = "red") +
+  geom_smooth(data = subset(df, bandwidth <= 0), method = "lm", se = FALSE, color = "black") +
+  geom_smooth(data = subset(df, bandwidth > 0), method = "lm", se = FALSE, color = "black") +
+  labs(title = "Regression Discontinuity Simulation",
+       subtitle = "Linear Fit on Either Side of Cutoff",
+       x = "Bandwidth (distance from the cut-off)",
+       y = "Test scores",
+       color = "Group") +
+  scale_color_discrete(labels = c("Control group", "Treatment group")) +
+  theme_minimal()
+```
+
+The rest of the chunks are attempting to recreate those sections from the following research paper (https://www.jstor.org/stable/pdf/26156184.pdf?casa_token=1lobf4iIKLgAAAAA:bJI1X1Z13Yi-9nB96BsA-s7aB9zzA4EuugEMenBnf1fNeTbdCfsymhkngBRMeG9ZE08TyjCnYvgHs4Xf6dxYNuqP-H0zoJ3dtRM_xCDTyOvjKgJU30BD) that were highlighted by Question 5 of the Final Exam. 
+
+```{r}
+### Question 5
+### Setting things up 
+#| echo: false
+#| warning: false
+#| message: false
+library(haven)
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+library(sandwich)
+library(stargazer)
+```
+
+```{r}
+### Loading data and some manipulation
+#| echo: false
+#| warning: false
+#| message: false
+data <- read_dta("CA_schools_es.dta")
+
+# Generate running variable
+data <- data %>%
+  mutate(norm = case_when(
+    stype == "M" ~ api_rank - 600,
+    stype == "H" ~ api_rank - 584,
+    TRUE ~ api_rank - 643
+  ))
+
+# Restrict sample to elementary schools and generate variables
+data <- data %>%
+  filter(stype == "E") %>%
+  mutate(
+    ind = if_else(api_rank <= 643, 1, 0),
+    ind_norm = ind * norm
+  ) %>%
+  filter(abs(norm) < 100) # Keep observations within 200 API window of cutoff
+```
+
+```{r}
+### Normalizing test scores
+#| echo: false
+#| warning: false
+#| message: false
+data <- data %>%
+  mutate(
+    mathscore = (mathscore - mean(mathscore, na.rm = TRUE)) / sd(mathscore, na.rm = TRUE),
+    readingscore = (readingscore - mean(readingscore, na.rm = TRUE)) / sd(readingscore, na.rm = TRUE),
+    average_score = (mathscore + readingscore) / 2
+  )
+
+# Generate lagged test scores (requires ordering by 'cds' and 'year' first)
+data <- data %>%
+  arrange(cds, year) %>%
+  group_by(cds) %>%
+  mutate(lag_average_score = lag(average_score))
+```
+
+
+```{r}
+### Figure 1
+#| echo: false
+#| warning: false
+#| message: false
+data %>% 
+  filter(year < 2005, norm < 19.099, norm > -19.099) %>%
+  mutate(bin = round(norm / 3) * 3) %>%
+  group_by(bin) %>%
+  summarize(y_hat3_bin = mean(average_score, na.rm = TRUE)) %>%
+  ggplot(aes(x = bin, y = y_hat3_bin)) +
+  geom_point(color ="black", alpha = 0.5) +
+  labs(title = "Figure 1: Predicted Pretreatment Test Scores Using School Characteristics for Elementary Schools",
+       x = "API in 2003 relative to cutoff",
+       y = "Predicted test score") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_minimal()
+```
+
+```{r}
+### Figure 2
+data %>%
+  filter(year == 2005) %>%
+  mutate(bin = round(norm / 3) * 3) %>%
+  group_by(bin) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = bin, y = count)) +
+  geom_point(color ="black", alpha = 0.5) +
+  labs(title = "Figure 2: Distribution of Elementary Schools Around Eligibility Threshold",
+       x = "API in 2003 relative to cutoff",
+       y = "Number of schools") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_minimal()
+```
+
+
+
